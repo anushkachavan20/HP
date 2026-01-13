@@ -444,16 +444,26 @@ console.log(currentDate); // "17-6-2022"
 
      // Pre-process groups to avoid O(N^2) lookup
      const groupFailures = new Map();
-     let capturedPageUrl = "NA"; // Store dynamically found URL
+     
+     // Store URLs mapped by ID: { 'Users': 'http://...', 'Devices': '...' }
+     let capturedPageUrls = {}; 
 
      // Helper to extract URL from check names
+     // Format expected: PageURL_{ID}_IS_{URL}
      function extractUrlFromChecks(checks) {
          if (!checks) return;
          for (let j = 0; j < checks.length; j++) {
-             // Look for our specific marker
-             if (checks[j].name.indexOf("PageURL_IS_") === 0) {
-                 capturedPageUrl = checks[j].name.split("PageURL_IS_")[1];
-                 console.log(`[CSV Export] Detected Dynamic Page URL: ${capturedPageUrl}`);
+             const name = checks[j].name;
+             if (name.indexOf("PageURL_") === 0 && name.indexOf("_IS_") !== -1) {
+                 // split by _IS_
+                 const parts = name.split("_IS_"); // ["PageURL_Users", "http://..."]
+                 if (parts.length > 1) {
+                     const beforeIs = parts[0]; // "PageURL_Users"
+                     const id = beforeIs.replace("PageURL_", ""); // "Users"
+                     const url = parts[1];
+                     capturedPageUrls[id] = url;
+                     console.log(`[CSV Export] Detected Dynamic Page URL for [${id}]: ${url}`);
+                 }
              }
          }
      }
@@ -499,34 +509,28 @@ console.log(currentDate); // "17-6-2022"
          traverseGroups(data.root_group.groups);
      }
  
-     // --- Explicit Browser Metric Extraction ---
-     let browserLoadTime = 0;
-     // The key must match the name defined in the Trend literal in the test file
-     const browserMetricName = 'Browser_Users_Load_List_Smoke'; 
-     
-     if (data.metrics[browserMetricName]) {
-         const m = data.metrics[browserMetricName];
-         if (m.values) {
-             // Supports custom trend stats or default avg
-             browserLoadTime = m.values['p(90)'] || m.values['avg'] || 0;
-             console.log(`[CSV Export] Found Browser Metric '${browserMetricName}': ${browserLoadTime}ms`);
-         }
-     } else {
-         console.log(`[CSV Export] WARNING: Metric '${browserMetricName}' not found in summary.`);
-         // Debug: print available keys if specific metric missing
-         // console.log('Available keys:', Object.keys(data.metrics));
-     }
+     // --- Configuration Map for Browser Injection ---
+     // Add new entries here to support other pages
+     const browserMetricsMap = {
+        'LHIDM_Users_GetUser_Smoke': {
+            loadMetric: 'Browser_Users_Load_List_Smoke',
+            fcpMetric: 'Browser_Users_FCP',
+            lcpMetric: 'Browser_Users_LCP',
+            urlId: 'Users' // Looks for PageURL_Users_IS_...
+        }
+        // Example for future:
+        // 'LHIDM_Tenants_Get_Tenant_Smoke': {
+        //     loadMetric: 'Browser_Tenants_Load',
+        //     fcpMetric: 'Browser_Tenants_FCP',
+        //     lcpMetric: 'Browser_Tenants_LCP',
+        //     urlId: 'Tenants'
+        // }
+     };
 
-     let browserFcp = 0;
-     let browserLcp = 0;
-     const fcpMetricName = 'Browser_Users_FCP';
-     const lcpMetricName = 'Browser_Users_LCP';
-
-     if (data.metrics[fcpMetricName] && data.metrics[fcpMetricName].values) {
-        browserFcp = data.metrics[fcpMetricName].values['p(90)'] || data.metrics[fcpMetricName].values['avg'] || 0;
-     }
-     if (data.metrics[lcpMetricName] && data.metrics[lcpMetricName].values) {
-        browserLcp = data.metrics[lcpMetricName].values['p(90)'] || data.metrics[lcpMetricName].values['avg'] || 0;
+     // Helper to safely get metric value
+     function getMetricVal(name) {
+         if (!name || !data.metrics[name] || !data.metrics[name].values) return 0;
+         return data.metrics[name].values['p(90)'] || data.metrics[name].values['avg'] || 0;
      }
 
      // Extract the keys and their p(90) values
@@ -618,19 +622,26 @@ console.log(currentDate); // "17-6-2022"
              let fcp_val = 0;
              let lcp_val = 0;
 
-             // Inject Browser Load Time into the specific API group row
-             // Target Group: LHIDM_Users_GetUser_Smoke
-             if (group_name && group_name.indexOf('LHIDM_Users_GetUser_Smoke') !== -1) {
-                 load_time_val = browserLoadTime;
-                 
-                 // Use the dynamically captured URL
-                 page_name = capturedPageUrl;
-                 
-                 fcp_val = browserFcp;
-                 lcp_val = browserLcp;
-                 console.log(`[CSV Export] Injecting Browser metrics into ${group_name}`);
+             // Generic Inspection from map
+             // Check if this group name is in our browser metrics map
+             // Loop through keys in map to find partial match (or exact if you prefer)
+             // Using partial match (indexOf) as per original code style
+             for (const [mapKey, mapConfig] of Object.entries(browserMetricsMap)) {
+                  if (group_name && group_name.indexOf(mapKey) !== -1) {
+                      load_time_val = getMetricVal(mapConfig.loadMetric);
+                      fcp_val = getMetricVal(mapConfig.fcpMetric);
+                      lcp_val = getMetricVal(mapConfig.lcpMetric);
+                      
+                      const urlId = mapConfig.urlId;
+                      if (capturedPageUrls[urlId]) {
+                          page_name = capturedPageUrls[urlId];
+                      }
+                      
+                      console.log(`[CSV Export] Injecting Browser metrics for [${urlId}] into ${group_name}`);
+                      break; // Found matching config
+                  }
              }
-           
+
              csv += `${currentDate},${__ENV.ENVNAME},${level},${service_Name},${api_Name},${method_Name},${page_name},${info},${p90},${p95},${p99},${errorRate},${threshold_value},${threshold_name},${status},${execution_status},${load_time_val},${fcp_val},${lcp_val}\n`;
          }
         //console.log(key);
