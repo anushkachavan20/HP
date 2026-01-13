@@ -231,9 +231,9 @@ export async function browserSmokeTest() {
     browserLoadTrend.add(loadTime);
 
     // TRICK: Create a dummy check with the URL in the name so we can extract it in handleSummary
-    // delim changed to _IS_ to avoid K6 restriction on ::
+    // Format: PageURL_{ID}_IS_{URL}
     check(page, {
-        [`PageURL_IS_${currentUrl}`]: () => true,
+        [`PageURL_Users_IS_${currentUrl}`]: () => true,
     });
     
     // Waiting for LCP to settle for SPA soft navigation
