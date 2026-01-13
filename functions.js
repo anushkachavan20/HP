@@ -552,6 +552,9 @@ console.log(currentDate); // "17-6-2022"
              console.log(api_Name);
              let method_Name = arr[2];
              console.log(method_Name);
+             if (method_Name === 'GetUser') {
+                 method_Name = 'Get';
+             }
              let info = arr[3];
              console.log(info);
              console.log(group_name);
