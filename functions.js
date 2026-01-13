@@ -545,21 +545,38 @@ console.log(currentDate); // "17-6-2022"
              
              // get Service, API, 
              console.log(group_name);
-             let arr = findBetween(group_name, '', '_', true);
+             let arr = [];
+             if (group_name) {
+                 arr = group_name.split('_');
+             }
              let service_Name = arr[0];
              console.log(service_Name);
              let api_Name = arr[1];
              console.log(api_Name);
-             let method_Name = arr[2];
+             
+             let raw_method_Name = arr[2];
+             let method_Name = raw_method_Name;
              console.log(method_Name);
              if (method_Name === 'GetUser') {
                  method_Name = 'Get';
              }
-             let info = arr[3];
-             console.log(info);
-             console.log(group_name);
-             let level = findBetween(key, method_Name+'_'+info+'_', '}', false);
-             console.log(level);
+             
+             let info = 'NA'; 
+             let level = '';
+
+             // Handle 4-part vs 5-part group naming convention
+             if (arr.length >= 5) {
+                info = arr[3];
+                level = arr[4];
+             } else if (arr.length === 4) {
+                 // Service_API_Method_Level
+                 level = arr[3];
+                 info = 'NA';
+             } else {
+                 info = arr[3] || 'NA';
+             }
+
+             console.log(`Parsed: Method=${method_Name}, Info=${info}, Level=${level}`);
              
              // Optimize access to values directly from match.value if possible, 
              // but keeping jsonpath for compatibility with existing parsing logic style if simpler, 
@@ -610,7 +627,7 @@ console.log(currentDate); // "17-6-2022"
             /// to find assement failuers status check
             console.log('-------response status check----------');
             // Check if group had failures using map
-            if (groupFailures.has(group_name)) {
+            if (groupFailures.get(group_name) === true) {
                 execution_status = 'fail';
                 status='na';
                 p90=0;
