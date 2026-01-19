@@ -129,7 +129,7 @@ function generateTokenTP(xhostname, xusername, xpassword){
 	if(env == "staging-techpulse"){
 		res1 = http.get('https://'+xhostname+'/services/oauth_handler/onecloud/auth?providerHref=https://oauth-auth.stg.oc.hp.com/oauth2/v1/auth?config_id=4496b334-3996-4c2b-81d7-2b5d8a429a3f&login_hint='+xusername);
 		}
-	if(env == "eustaging-techpulse" || env == "eustaging"){
+	if(env == "eustaging-techpulse" ){
 		res1 = http.get('https://'+xhostname+'/services/oauth_handler/onecloud/auth?providerHref=https://oauth-auth.eu-stg.oc.hp.com/oauth2/v1/auth?config_id=2e6590af-5e9b-4a1b-9ad8-bfd26ea287d3&login_hint='+xusername);
 	}
     // Capture  authUril and cFlowurl
@@ -570,8 +570,9 @@ console.log(currentDate); // "17-6-2022"
                 level = arr[4];
              } else if (arr.length === 4) {
                  // Service_API_Method_Level
+                 // If 4 parts, Info defaults to API Name (e.g. Users, TenantPreferences)
                  level = arr[3];
-                 info = 'NA';
+                 info = arr[1];
              } else {
                  info = arr[3] || 'NA';
              }
